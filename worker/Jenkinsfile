@@ -1,0 +1,82 @@
+pipeline {
+    agent none
+
+    stages {
+        stage('build') {
+            agent {
+                docker {
+                    image 'maven:3.6.1-jdk-8-alpine'
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            when {
+                changeset "**/worker/**"
+            }
+            steps {
+                echo 'Compile worker app'
+                dir('worker'){
+                    sh "mvn compile"
+                }
+            }
+        }
+        stage('test') {
+            agent {
+                docker {
+                    image 'maven:3.6.1-jdk-8-alpine'
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            when {
+                changeset "**/worker/**"
+            }
+            steps {
+                echo 'Running Unit Tests on worker app'
+                dir('worker'){
+                    sh "mvn clean test"
+                }
+            }
+        }
+        stage('package') {
+                agent {
+                docker {
+                    image 'maven:3.6.1-jdk-8-alpine'
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            when {
+                branch 'master'
+                changeset "**/worker/**"
+            }
+            steps {
+                echo 'Packageing worker app'
+                dir('worker'){
+                    sh "mvn package -DskipTests"
+                    archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+                }
+            }
+        }
+        stage('docker-package') {
+            agent any
+            when {
+                branch 'master'
+                changeset "**/worker/**"
+            }
+            steps {
+                echo 'Packaging worker app with docker'
+                script {
+                    docker.withRegistry('https://docker.hyca.io/', 'nexus-login') {
+                        def workerImage = docker.build("docker.hyca.io/worker:v${env.BUILD_ID}", "./worker")
+                        workerImage.push()
+                        workerImage.push("$env.BRANCH_NAME")
+                        workerImage.push("latest")
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always{
+            echo 'Build pipeline for worker is complete..'
+        }
+    }
+}

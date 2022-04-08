@@ -1,0 +1,58 @@
+pipeline {
+    agent none
+    stages {
+        stage('build') {
+            agent {
+                docker {
+                    image 'node:8.16.0-alpine'
+                }
+            }
+            when {
+                changeset "**/result/**"
+            }
+            steps {
+                dir('result'){
+                    sh "npm install"
+                }
+            }
+        }
+        stage('test') {
+            agent {
+                docker {
+                    image 'node:8.16.0-alpine'
+                }
+            }
+            when {
+                changeset "**/result/**"
+            }
+            steps {
+                dir('result'){
+                    sh "npm install"
+                    sh "npm test"
+                }
+            }
+        }
+        stage('docker-package') {
+            agent any
+            when {
+                branch 'master'
+                changeset "**/result/**"
+            }
+            steps {
+                echo 'Packaging result app with docker'
+                script {
+                    docker.withRegistry('https://docker.hyca.io/', 'nexus-login') {
+                        def resultImage = docker.build("docker.hyca.io/result:v${env.BUILD_ID}", "./result")
+                        resultImage.push()
+                        resultImage.push("latest")
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always{
+            echo 'Build pipeline for result is complete..'
+        }
+    }
+}

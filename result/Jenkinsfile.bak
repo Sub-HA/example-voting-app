@@ -1,0 +1,34 @@
+pipeline {
+    agent any
+    tools {
+        nodejs 'NodeJS'
+    }
+    stages {
+        stage('build') {
+            when {
+                changeset "**/result/**"
+            }
+            steps {
+                dir('result'){
+                    sh "npm install"
+                }
+            }
+        }
+        stage('test') {
+            when {
+                changeset "**/result/**"
+            }
+            steps {
+                dir('result'){
+                    sh "npm install"
+                    sh "npm test"
+                }
+            }
+        }
+    }
+    post {
+        always{
+            echo 'Build pipeline for worker is complete..'
+        }
+    }
+}

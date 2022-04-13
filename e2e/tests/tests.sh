@@ -10,8 +10,12 @@ done
 # add initial vote 
 curl -sS -X POST --data "vote=a" http://vote > /dev/null
 
-current=`phantomjs render.js "http://result:4000/" | grep -i vote | cut -d ">" -f 4 | cut -d " " -f1`
-next=`echo "$(($current + 1))"`
+current=`phantomjs render.js "http://result:4000/" | grep -i vote | cut -d ">" -f 4 | cut -d " " -f1 | sed -e 's/\!//g'`
+
+echo $current | grep -q -e "[0-9]\+"
+if [[ $? -ne 0 ]]; then
+  current=1
+fi
 
   echo -e "\n\n-----------------"
   echo -e "Current Votes Count: $current"
